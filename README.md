@@ -143,30 +143,6 @@ ANTHROPIC_API_KEY=sk-... pytest tests/ -v
 ANTHROPIC_API_KEY=sk-... pytest tests/test_parse.py::test_accuracy_benchmark -s
 ```
 
-## Project structure
-
-```
-browser_agent/
-├── backend/
-│   ├── main.py               # FastAPI app — /parse, /parse/audio, /ws, /health
-│   ├── intent_parser.py      # TaskIntent schema + Claude tool-use parser
-│   ├── voice_pipeline.py     # Whisper-1 transcription
-│   ├── browser_automation.py # Playwright session management
-│   └── websocket_manager.py  # WebSocket connection pool
-├── src/
-│   ├── components/           # React components
-│   ├── hooks/                # useVoiceRecognition, useSocket, useTTS
-│   ├── types/                # TypeScript interfaces
-│   └── App.tsx
-├── tests/
-│   ├── conftest.py           # --mock flag, skip logic
-│   └── test_parse.py         # 28-utterance accuracy benchmark
-├── .env.example
-├── requirements.txt
-├── pytest.ini
-└── start.sh
-```
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
