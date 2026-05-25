@@ -1,178 +1,93 @@
 #!/usr/bin/env python3
 """
-Demo script for Voice Browser Agent
-This script demonstrates the key features and can be run for testing
+Quick demo: shows intent parsing results for a set of example commands
+without requiring a running server or API keys.
 """
 
 import json
+import asyncio
+import os
 
-def demo_browser_automation():
-    """Demonstrate browser automation capabilities"""
-    print("🌐 Browser Automation Demo")
-    print("=========================")
-    print("✅ Browser automation module ready")
-    print("✅ Playwright integration configured")
-    print("✅ Session management implemented")
-    print("✅ Command execution system ready")
-    print("✅ Screenshot capture functionality ready")
-    print("✅ WebSocket communication established")
+DEMO_COMMANDS = [
+    "Go to google.com",
+    "Click the search button",
+    "Type hello world in the search box",
+    "Take a screenshot",
+    "Wait 5 seconds",
+    "Scroll down",
+    "Delete my account",
+    "Post this tweet",
+]
+
+
+def local_parse(text: str) -> dict:
+    """Minimal rule-based parser for offline demo."""
+    t = text.lower()
+    if "go to" in t or "navigate" in t:
+        return {"action_type": "navigate", "reversibility": "reversible", "requires_confirmation": False}
+    if "click" in t:
+        return {"action_type": "click", "reversibility": "reversible", "requires_confirmation": False}
+    if "type" in t:
+        return {"action_type": "type", "reversibility": "reversible", "requires_confirmation": False}
+    if "screenshot" in t or "capture" in t:
+        return {"action_type": "screenshot", "reversibility": "read", "requires_confirmation": False}
+    if "wait" in t or "pause" in t:
+        return {"action_type": "wait", "reversibility": "read", "requires_confirmation": False}
+    if "scroll" in t:
+        return {"action_type": "scroll", "reversibility": "reversible", "requires_confirmation": False}
+    if "delete" in t or "post" in t or "send" in t or "submit" in t:
+        return {"action_type": "click", "reversibility": "irreversible", "requires_confirmation": True}
+    return {"action_type": "unknown", "reversibility": "reversible", "requires_confirmation": False}
+
+
+async def claude_parse(text: str) -> dict | None:
+    """Live parse via Claude API (requires ANTHROPIC_API_KEY)."""
+    try:
+        from backend.intent_parser import parse_transcript
+        intent = await parse_transcript(text)
+        return intent.model_dump()
+    except Exception as exc:
+        print(f"  [Claude API unavailable: {exc}]")
+        return None
+
 
 def demo_intent_parsing():
-    """Demonstrate intent parsing capabilities"""
-    print("\n🧠 Intent Parsing Demo")
-    print("======================")
-    
-    demo_commands = [
-        "Go to google.com",
-        "Click the search button", 
-        "Type hello world",
-        "Take a screenshot",
-        "Wait 5 seconds",
-        "Scroll down"
-    ]
-    
-    for cmd_text in demo_commands:
-        print(f"\n📝 Command: \"{cmd_text}\"")
-        
-        # Simulate intent parsing
-        intent = analyze_intent(cmd_text)
-        print(f"   Intent: {intent['intent']}")
-        print(f"   Type: {intent['type']}")
-        print(f"   Parameters: {json.dumps(intent['params'], indent=2)}")
+    print("\nIntent Parsing Demo")
+    print("===================")
+    use_api = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    print(f"Mode: {'Claude API' if use_api else 'local rule-based (set ANTHROPIC_API_KEY for Claude)'}\n")
 
-def analyze_intent(text: str) -> dict:
-    """Simple intent analysis (matches frontend logic)"""
-    text = text.lower().strip()
-    
-    if 'go to' in text or 'navigate to' in text or 'visit' in text:
-        url_match = text.split()[-1] if '.' in text.split()[-1] else 'unknown'
-        return {
-            "intent": "navigate",
-            "type": "navigation",
-            "params": {"url": url_match},
-            "command": "navigate",
-            "target": url_match
-        }
-    
-    elif 'click' in text or 'press' in text or 'tap' in text:
-        selector = 'button' if 'button' in text else 'button'
-        return {
-            "intent": "click",
-            "type": "interaction", 
-            "params": {"selector": selector},
-            "command": "click",
-            "target": selector
-        }
-    
-    elif 'type' in text or 'enter' in text or 'input' in text:
-        words = text.split()
-        text_to_type = ' '.join(words[1:]) if len(words) > 1 else ''
-        return {
-            "intent": "type",
-            "type": "interaction",
-            "params": {"selector": "input", "text": text_to_type},
-            "command": "type",
-            "target": "input",
-            "value": text_to_type
-        }
-    
-    elif 'screenshot' in text or 'capture' in text or 'take picture' in text:
-        return {
-            "intent": "screenshot",
-            "type": "capture",
-            "params": {},
-            "command": "screenshot"
-        }
-    
-    elif 'wait' in text or 'pause' in text:
-        duration = 1
-        if any(word.isdigit() for word in text.split()):
-            duration = int(''.join(filter(str.isdigit, text)))
-        return {
-            "intent": "wait",
-            "type": "timing",
-            "params": {"duration": duration},
-            "command": "wait",
-            "duration": duration
-        }
-    
-    elif 'scroll' in text:
-        direction = 'down'
-        if 'up' in text:
-            direction = 'up'
-        elif 'left' in text:
-            direction = 'left'
-        elif 'right' in text:
-            direction = 'right'
-        return {
-            "intent": "scroll",
-            "type": "interaction",
-            "params": {"direction": direction},
-            "command": "scroll",
-            "direction": direction
-        }
-    
-    return {
-        "intent": "unknown",
-        "type": "unknown",
-        "params": {"transcript": text},
-        "command": "unknown"
-    }
+    for cmd in DEMO_COMMANDS:
+        print(f"Command: {cmd!r}")
+        if use_api:
+            result = asyncio.run(claude_parse(cmd)) or local_parse(cmd)
+        else:
+            result = local_parse(cmd)
+        print(f"  action_type          : {result.get('action_type')}")
+        print(f"  reversibility        : {result.get('reversibility')}")
+        print(f"  requires_confirmation: {result.get('requires_confirmation')}")
+        if result.get("description"):
+            print(f"  description          : {result.get('description')}")
+        print()
+
 
 def main():
-    """Main demo function"""
-    print("🎤 Voice Browser Agent Demo")
-    print("===========================")
-    
-    # Demo intent parsing
-    demo_intent_parsing()
-    
-    # Demo browser automation (requires browser installation)
-    print("\n🌐 Browser Automation Demo")
+    print("Voice Browser Agent — Demo")
     print("==========================")
-    print("Note: This requires Playwright browser installation.")
-    print("Run: pip install playwright && playwright install chromium")
-    
-    demo_browser_automation()
-    
-    print("\n🎯 Demo Features:")
-    print("=================")
-    print("✅ React TypeScript frontend with modern UI")
-    print("✅ Python FastAPI backend with WebSocket support")
-    print("✅ Voice recognition with Web Speech API")
-    print("✅ Real-time transcription display")
-    print("✅ Intent parsing and command structure")
-    print("✅ Browser automation with Playwright")
-    print("✅ Live status monitoring")
-    print("✅ Text-to-speech feedback")
-    print("✅ Screenshot capture")
-    print("✅ Session management and export")
-    print("✅ Modern dark tech UI design")
-    
-    print("\n🚀 To start the application:")
-    print("============================")
-    print("1. ./start.sh  # Automated setup and start")
-    print("2. Or manually:")
-    print("   - pip install -r requirements.txt")
-    print("   - npm install")
-    print("   - npm run build")
-    print("   - python3 -m backend.main")
-    print("   - npm run dev")
-    print("3. Open http://localhost:3000")
-    print("4. Grant microphone permissions")
-    print("5. Click 'Start Voice Control'")
-    print("6. Speak commands naturally!")
-    
-    print("\n💡 Example Commands:")
-    print("===================")
-    print("• 'Go to google.com'")
-    print("• 'Click the search button'")
-    print("• 'Type hello world'")
-    print("• 'Take a screenshot'")
-    print("• 'Wait 5 seconds'")
-    print("• 'Scroll down'")
-    
-    print("\n🎉 Voice Browser Agent is ready!")
+    demo_intent_parsing()
+
+    print("To start the full application:")
+    print("  ./start.sh")
+    print("")
+    print("To run the intent parser test suite:")
+    print("  ANTHROPIC_API_KEY=sk-... pytest tests/test_parse.py -v")
+    print("")
+    print("API endpoints (server running):")
+    print("  POST http://localhost:8000/parse        — text intent parse")
+    print("  POST http://localhost:8000/parse/audio  — Whisper + intent parse")
+    print("  GET  http://localhost:8000/health       — health check")
+    print("  WS   ws://localhost:8000/ws             — browser automation channel")
+
 
 if __name__ == "__main__":
     main()

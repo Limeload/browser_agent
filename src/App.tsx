@@ -10,7 +10,7 @@ import { useTTS } from './hooks/useTTS';
 import { VoiceCommand, Metrics, LogEntry, SessionData } from './types';
 
 function App() {
-  const { connectionStatus, connectToBrowser, disconnectFromBrowser, executeCommand, takeScreenshot } = useSocket();
+  const { connectionStatus, latestScreenshot, connectToBrowser, disconnectFromBrowser, executeCommand, takeScreenshot } = useSocket();
   const { showFeedback, feedback } = useTTS();
   
   const [currentCommand, setCurrentCommand] = useState<VoiceCommand | null>(null);
@@ -219,6 +219,7 @@ function App() {
           
           <BrowserPanel
             connectionStatus={connectionStatus}
+            screenshot={latestScreenshot}
             onConnect={handleConnectBrowser}
             onDisconnect={handleDisconnectBrowser}
             onScreenshot={handleScreenshot}

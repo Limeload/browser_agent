@@ -1,7 +1,7 @@
 {
   "name": "voice-browser-agent",
-  "version": "1.0.0",
-  "description": "Sophisticated voice-enabled browser automation agent with React TypeScript frontend",
+  "version": "0.1.0",
+  "description": "Voice-controlled browser automation agent — React + FastAPI + Claude + Playwright",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -35,9 +35,11 @@
     "voice-control",
     "react",
     "typescript",
-    "python",
-    "fastapi"
+    "fastapi",
+    "claude",
+    "playwright",
+    "whisper"
   ],
-  "author": "Voice Browser Agent",
+  "author": "",
   "license": "MIT"
 }

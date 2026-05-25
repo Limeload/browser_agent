@@ -1,286 +1,176 @@
 # Voice Browser Agent
 
-A sophisticated voice-enabled browser automation agent built with **React TypeScript** frontend and **Python FastAPI** backend. This application combines cutting-edge voice recognition with browser automation capabilities, similar to advanced AI assistants but focused on web automation tasks.
+A voice-controlled browser automation agent. Speak a command — the agent transcribes it with Whisper, parses the intent with Claude, and executes it in a real browser via Playwright.
 
-## 🏗️ Architecture
+## Architecture
 
-- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
-- **Backend**: Python FastAPI + WebSocket + Playwright
-- **Communication**: Native WebSocket for real-time communication
-- **Browser Automation**: Playwright for professional browser control
-
-## ✨ Features
-
-### 🎤 Voice Control
-- **Real-time Speech Recognition**: Uses Web Speech API for live transcription
-- **Intent Parsing**: Advanced natural language processing to understand commands
-- **Command Structure Display**: Visual representation of parsed commands
-- **Confidence Meter**: Real-time confidence scoring for voice input
-
-### 🌐 Browser Automation
-- **Playwright Integration**: Professional browser automation with headless Chrome
-- **Multi-Command Support**: Navigate, click, type, scroll, wait, and screenshot commands
-- **Live Status Monitoring**: Real-time connection status and session management
-- **Screenshot Capture**: Automatic screenshot capture with results display
-
-### 📊 Live Monitoring
-- **Execution Logging**: Comprehensive logging system with timestamps
-- **Performance Metrics**: Command success rate and execution statistics
-- **Session Timer**: Real-time session duration tracking
-- **Status Indicators**: Visual indicators for connection and recording status
-
-### 🔊 Audio Feedback
-- **Text-to-Speech**: Built-in TTS system for command confirmation
-- **Visual Feedback**: Modern notification system for user feedback
-- **Audio Cues**: Sound feedback for different system states
-
-### 💾 Session Management
-- **Save Sessions**: Export complete session data including commands and logs
-- **Load Sessions**: Import and restore previous sessions
-- **Export Logs**: Export execution logs in JSON format
-- **Data Persistence**: Maintain session state across browser refreshes
-
-## 🚀 Quick Start
-
-### Option 1: Automated Setup (Recommended)
-```bash
-# Clone the repository
-git clone <repository-url>
-cd browser_agent
-
-# Run the startup script (installs dependencies and starts both services)
-./start.sh
+```
+Microphone  ->  Whisper (speech-to-text)
+            ->  Claude claude-sonnet-4-6 (intent parsing / TaskIntent schema)
+            ->  FastAPI backend (POST /parse, WebSocket /ws)
+            ->  Playwright (browser automation)
+            ->  React + Vite frontend (voice panel, intent panel, browser panel)
 ```
 
-### Option 2: Manual Setup
+## Stack
 
-#### 1. Install Dependencies
+| Layer | Technology |
+|---|---|
+| Voice input | Web Speech API (browser) or OpenAI Whisper-1 (audio file upload) |
+| Intent parser | Claude claude-sonnet-4-6 via Anthropic SDK — forced `tool_use` for structured output |
+| API layer | FastAPI + uvicorn |
+| Browser automation | Playwright (Chromium) |
+| Real-time channel | WebSocket (`/ws`) |
+| Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
+
+## Quick start
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- API keys: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` (only needed for `/parse/audio`)
+
+### Setup
+
 ```bash
-# Install Python dependencies
-pip3 install -r requirements.txt
+git clone https://github.com/Limeload/browser_agent.git
+cd browser_agent
 
-# Install Node.js dependencies
+# Copy and fill in your keys
+cp .env.example .env
+
+# Install dependencies
+pip install -r requirements.txt
+playwright install chromium
 npm install
 ```
 
-#### 2. Build Frontend
-```bash
-npm run build
-```
+### Run
 
-#### 3. Start Services
 ```bash
-# Terminal 1: Start Python backend
-python3 -m backend.main
+# Option 1 — automated
+./start.sh
 
-# Terminal 2: Start React frontend (development)
+# Option 2 — manual (two terminals)
+python3 -m uvicorn backend.main:app --reload --port 8000
 npm run dev
 ```
 
-#### 4. Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+- Frontend: http://localhost:3000
+- API docs: http://localhost:8000/docs
 
-## 🎯 Usage
+## API reference
 
-### Getting Started
-1. **Connect to Browser**: Enter a target URL and click "Connect Browser"
-2. **Start Voice Control**: Click "Start Voice Control" to begin voice recognition
-3. **Give Commands**: Speak naturally to control the browser
+### `POST /parse`
 
-### Voice Commands
+Parse a text transcript into a structured `TaskIntent`.
 
-The system understands natural language commands:
+```json
+// Request
+{ "transcript": "Go to github.com" }
 
-#### Navigation
-- "Go to google.com"
-- "Navigate to example.com"
-- "Visit github.com"
-
-#### Interaction
-- "Click the button"
-- "Press the submit button"
-- "Type hello world"
-- "Enter my email address"
-- "Scroll down"
-- "Scroll up"
-
-#### Capture
-- "Take a screenshot"
-- "Capture the page"
-- "Take a picture"
-
-#### Timing
-- "Wait 5 seconds"
-- "Pause for 2 minutes"
-
-## 🛠️ Development
-
-### Project Structure
-```
-browser_agent/
-├── src/                    # React TypeScript frontend
-│   ├── components/         # React components
-│   ├── hooks/             # Custom React hooks
-│   ├── types/             # TypeScript type definitions
-│   └── App.tsx            # Main React app
-├── backend/               # Python FastAPI backend
-│   ├── main.py            # FastAPI application
-│   ├── models.py          # Pydantic models
-│   ├── websocket_manager.py # WebSocket handling
-│   └── browser_automation.py # Playwright automation
-├── requirements.txt       # Python dependencies
-├── package.json          # Node.js dependencies
-└── start.sh              # Startup script
+// Response
+{
+  "action_type": "navigate",
+  "reversibility": "reversible",
+  "requires_confirmation": false,
+  "confidence": 0.97,
+  "target": "https://github.com",
+  "value": null,
+  "steps": [],
+  "ambiguity_flags": [],
+  "description": "Navigate to https://github.com",
+  "raw_transcript": "Go to github.com"
+}
 ```
 
-### Available Scripts
+`reversibility` values:
+- `read` — no state change (screenshot, extract, wait)
+- `reversible` — can navigate away (click, type, navigate, scroll)
+- `irreversible` — permanent (delete, submit payment, post, send email)
 
-#### Frontend (React)
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run type-check   # TypeScript type checking
-npm run lint         # ESLint code linting
-```
+`requires_confirmation` is always `true` when `reversibility` is `irreversible` — this is the HITL gate.
 
-#### Backend (Python)
-```bash
-python3 -m backend.main    # Start FastAPI server
-uvicorn backend.main:app  # Alternative start command
-```
+### `POST /parse/audio`
 
-### API Endpoints
+Multipart upload of a WAV/MP3/M4A/OGG file. Transcribes with Whisper-1, then parses. Returns the same `TaskIntent` schema with `raw_transcript` populated from Whisper output.
 
-#### HTTP Endpoints
-- `GET /` - Serve React application
-- `GET /health` - Health check with session count
-- `GET /api/sessions` - List active sessions
-- `DELETE /api/sessions/{id}` - Close specific session
+### `WebSocket /ws`
 
-#### WebSocket Events
-- `connect-browser` - Initialize browser session
-- `disconnect-browser` - Close browser session
-- `execute-command` - Execute automation command
-- `take-screenshot` - Capture screenshot
+Browser automation control channel. Send JSON messages:
 
-## 🔧 Configuration
+| `type` | Payload | Response |
+|---|---|---|
+| `connect-browser` | `{ url }` | `browser-status` |
+| `disconnect-browser` | `{ sessionId }` | `browser-status` |
+| `execute-command` | `{ sessionId, command }` | `command-result` |
+| `take-screenshot` | `{ sessionId }` | `screenshot-result` (base64 PNG) |
 
-### Configuration
-The application uses default settings. No environment variables are required for basic operation.
+### `GET /health`
 
-### Browser Settings
-The application uses Playwright with Chromium. Browser settings can be modified in `backend/browser_automation.py`:
+Returns server status, active browser session count, and WebSocket connection count.
+
+## Intent schema (`TaskIntent`)
 
 ```python
-self.browser = await self.playwright.chromium.launch(
-    headless=True,  # Set to False for debugging
-    args=[
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        # ... other args
-    ]
-)
+action_type: Literal["navigate", "click", "type", "scroll", "wait",
+                     "screenshot", "extract", "form_submit",
+                     "back", "forward", "refresh", "multi_step", "unknown"]
+reversibility: Literal["read", "reversible", "irreversible"]
+requires_confirmation: bool
+confidence: float  # 0.0 – 1.0
+target: str | None
+value: str | None
+steps: list[TaskStep]       # populated when action_type == "multi_step"
+ambiguity_flags: list[str]  # non-empty when command is unclear
+description: str
+raw_transcript: str
 ```
 
-## 🌐 Browser Compatibility
+## Test suite
 
-### Voice Recognition
-- **Chrome/Chromium**: Full support ✅
-- **Firefox**: Limited support ⚠️
-- **Safari**: Limited support ⚠️
-- **Edge**: Full support ✅
+28 utterances covering simple commands, multi-step, irreversible actions, ambiguous input, and edge cases. Asserts >= 90% accuracy against the live Claude API.
 
-### Required Permissions
-- Microphone access for voice recognition
-- Camera access (if using visual features)
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Voice Recognition Not Working**
-   - Ensure microphone permissions are granted
-   - Use HTTPS in production (required for Web Speech API)
-   - Check browser compatibility
-
-2. **Browser Connection Failed**
-   - Verify Playwright installation: `pip3 install playwright`
-   - Install browser binaries: `playwright install chromium`
-   - Check system dependencies
-
-3. **Commands Not Executing**
-   - Verify WebSocket connection status
-   - Check browser session is active
-   - Review backend logs for errors
-
-4. **Build Issues**
-   - Ensure Node.js 16+ is installed
-   - Clear npm cache: `npm cache clean --force`
-   - Delete node_modules and reinstall: `rm -rf node_modules && npm install`
-
-### Debug Mode
-
-Enable debug logging by setting environment variables:
 ```bash
-export LOG_LEVEL=debug
-python3 -m backend.main
+# Offline (rule-based mock, no API key needed)
+pytest tests/ --mock
+
+# Live API
+ANTHROPIC_API_KEY=sk-... pytest tests/ -v
+
+# Accuracy benchmark only
+ANTHROPIC_API_KEY=sk-... pytest tests/test_parse.py::test_accuracy_benchmark -s
 ```
 
-## 📦 Dependencies
+## Project structure
 
-### Python Dependencies
-- **FastAPI**: Modern web framework
-- **Playwright**: Browser automation
-- **WebSockets**: Real-time communication
-- **Pydantic**: Data validation
-- **Uvicorn**: ASGI server
+```
+browser_agent/
+├── backend/
+│   ├── main.py               # FastAPI app — /parse, /parse/audio, /ws, /health
+│   ├── intent_parser.py      # TaskIntent schema + Claude tool-use parser
+│   ├── voice_pipeline.py     # Whisper-1 transcription
+│   ├── browser_automation.py # Playwright session management
+│   └── websocket_manager.py  # WebSocket connection pool
+├── src/
+│   ├── components/           # React components
+│   ├── hooks/                # useVoiceRecognition, useSocket, useTTS
+│   ├── types/                # TypeScript interfaces
+│   └── App.tsx
+├── tests/
+│   ├── conftest.py           # --mock flag, skip logic
+│   └── test_parse.py         # 28-utterance accuracy benchmark
+├── .env.example
+├── requirements.txt
+├── pytest.ini
+└── start.sh
+```
 
-### Node.js Dependencies
-- **React 18**: UI framework
-- **TypeScript**: Type safety
-- **Vite**: Build tool
-- **Tailwind CSS**: Styling
-- **Lucide React**: Icons
+## Contributing
 
-## 🤝 Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes
-4. Add tests if applicable
-5. Commit your changes: `git commit -m 'Add amazing feature'`
-6. Push to the branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+## License
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Playwright** for excellent browser automation
-- **FastAPI** for the modern Python web framework
-- **React** for the powerful frontend framework
-- **Web Speech API** for voice recognition capabilities
-
-## 📞 Support
-
-For issues and questions:
-- Check the troubleshooting section
-- Review backend logs
-- Open an issue on GitHub
-
-## 🗺️ Roadmap
-
-- [ ] Multi-language support
-- [ ] Advanced command chaining
-- [ ] Custom command training
-- [ ] Mobile app integration
-- [ ] Cloud deployment options
-- [ ] Advanced analytics dashboard
-- [ ] Voice command history
-- [ ] Custom browser profiles
-- [ ] Integration with CI/CD pipelines# browser_agent
+MIT — see [LICENSE](LICENSE).

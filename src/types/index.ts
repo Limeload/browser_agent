@@ -1,12 +1,38 @@
-export interface VoiceCommand {
-  intent: string;
-  type: 'navigation' | 'interaction' | 'capture' | 'timing' | 'unknown';
-  params: Record<string, any>;
-  command: string;
+export type ActionType =
+  | 'navigate' | 'click' | 'type' | 'scroll' | 'wait'
+  | 'screenshot' | 'extract' | 'form_submit'
+  | 'back' | 'forward' | 'refresh' | 'multi_step' | 'unknown';
+
+export type Reversibility = 'read' | 'reversible' | 'irreversible';
+
+export interface TaskStep {
+  action_type: ActionType;
   target?: string;
   value?: string;
-  duration?: number;
+  reversibility: Reversibility;
+  description: string;
+}
+
+/** Unified command type — populated by the backend /parse API. */
+export interface VoiceCommand {
+  // Backend TaskIntent fields
+  action_type: ActionType;
+  reversibility: Reversibility;
+  requires_confirmation: boolean;
+  confidence: number;
+  ambiguity_flags: string[];
+  description: string;
+  raw_transcript: string;
+  target?: string;
+  value?: string;
+  steps: TaskStep[];
+  // Legacy aliases kept for backward compat with existing components
+  intent: string;         // mirrors action_type
+  type: string;           // coarse category
+  params: Record<string, unknown>;
+  command: string;        // mirrors action_type
   direction?: string;
+  duration?: number;
 }
 
 export interface SessionData {
@@ -22,7 +48,7 @@ export interface SessionData {
 export interface CommandResult {
   success: boolean;
   command: string;
-  result?: any;
+  result?: unknown;
   error?: string;
   timestamp: number;
 }
@@ -35,7 +61,7 @@ export interface LogEntry {
 
 export interface ScreenshotResult {
   success: boolean;
-  screenshot?: string;
+  screenshot?: string;  // base64 PNG
   error?: string;
   timestamp: string;
 }
@@ -71,11 +97,4 @@ export interface VoiceRecognitionState {
   transcript: string;
   confidence: number;
   isSupported: boolean;
-}
-
-export interface IntentDisplay {
-  detectedIntent: string;
-  commandType: string;
-  parameters: Record<string, any>;
-  commandStructure: VoiceCommand;
 }
