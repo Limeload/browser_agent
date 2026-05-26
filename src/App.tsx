@@ -5,12 +5,17 @@ import { IntentPanel } from './components/IntentPanel';
 import { BrowserPanel } from './components/BrowserPanel';
 import { StatusPanel } from './components/StatusPanel';
 import { TTSFeedback } from './components/TTSFeedback';
+import { HITLModal } from './components/HITLModal';
 import { useSocket } from './hooks/useSocket';
 import { useTTS } from './hooks/useTTS';
 import { VoiceCommand, Metrics, LogEntry, SessionData } from './types';
 
 function App() {
-  const { connectionStatus, latestScreenshot, connectToBrowser, disconnectFromBrowser, executeCommand, takeScreenshot } = useSocket();
+  const {
+    connectionStatus, latestScreenshot, pendingAction, injectionAlert,
+    connectToBrowser, disconnectFromBrowser, executeCommand, takeScreenshot,
+    approveAction, denyAction, dismissInjectionAlert,
+  } = useSocket();
   const { showFeedback, feedback } = useTTS();
   
   const [currentCommand, setCurrentCommand] = useState<VoiceCommand | null>(null);
@@ -236,6 +241,32 @@ function App() {
       </main>
       
       <TTSFeedback message={feedback.message} visible={feedback.visible} />
+
+      <HITLModal
+        action={pendingAction}
+        onApprove={approveAction}
+        onDeny={denyAction}
+      />
+
+      {injectionAlert && (
+        <div className="fixed bottom-4 right-4 z-40 max-w-sm bg-red-900/90 border border-red-500/60 rounded-lg p-4 shadow-xl">
+          <div className="flex justify-between items-start gap-3">
+            <div>
+              <p className="text-red-300 font-semibold text-sm mb-1">Injection blocked</p>
+              <p className="text-red-200 text-xs font-mono truncate max-w-[240px]">{injectionAlert.text}</p>
+              <p className="text-red-400 text-xs mt-1">
+                {injectionAlert.detections.map(d => d.attack_type).join(', ')}
+              </p>
+            </div>
+            <button
+              onClick={dismissInjectionAlert}
+              className="text-red-400 hover:text-red-200 text-lg leading-none flex-shrink-0"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
