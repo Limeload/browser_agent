@@ -18,11 +18,13 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    # Skip all tests if ANTHROPIC_API_KEY is absent AND --mock was not passed
+    # Skip parse tests if ANTHROPIC_API_KEY is absent AND --mock was not passed.
+    # Other test modules (test_hitl, test_perception, test_guard) run without a key.
     if not os.environ.get("ANTHROPIC_API_KEY") and not config.getoption("--mock"):
         skip = pytest.mark.skip(reason="ANTHROPIC_API_KEY not set (use --mock for offline testing)")
         for item in items:
-            item.add_marker(skip)
+            if item.fspath.basename == "test_parse.py":
+                item.add_marker(skip)
 
 
 # ---------------------------------------------------------------------------
